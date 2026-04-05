@@ -1,0 +1,575 @@
+import type { ConversationRef, PluginInteractiveButtons } from "openclaw/plugin-sdk";
+
+export const PLUGIN_ID = "openclaw-codex-app-server-lite";
+export const INTERACTIVE_NAMESPACE = "codexapplite";
+export const STORE_VERSION = 2;
+export const CALLBACK_TOKEN_BYTES = 9;
+export const CALLBACK_TTL_MS = 30 * 60_000;
+export const PENDING_INPUT_TTL_MS = 7 * 24 * 60 * 60_000;
+export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
+
+export type CodexTransport = "stdio" | "websocket";
+export type PermissionsMode = "default" | "full-access";
+
+export type PluginSettings = {
+  enabled: boolean;
+  transport: CodexTransport;
+  command: string;
+  args: string[];
+  url?: string;
+  headers?: Record<string, string>;
+  requestTimeoutMs: number;
+  defaultWorkspaceDir?: string;
+  defaultModel?: string;
+  defaultServiceTier?: string;
+};
+
+export type CodexPlanStep = {
+  step: string;
+  status: "pending" | "inProgress" | "completed";
+};
+
+export type CodexPlanArtifact = {
+  explanation?: string;
+  steps: CodexPlanStep[];
+  markdown: string;
+};
+
+export type PendingApprovalDecision =
+  | "accept"
+  | "acceptForSession"
+  | "decline"
+  | "cancel";
+
+export type PendingInputAction =
+  | {
+      kind: "approval";
+      label: string;
+      decision: PendingApprovalDecision;
+      responseDecision: string;
+      proposedExecpolicyAmendment?: Record<string, unknown>;
+      sessionPrefix?: string;
+    }
+  | {
+      kind: "option";
+      label: string;
+      value: string;
+    }
+  | {
+      kind: "steer";
+      label: string;
+    };
+
+export type PendingQuestionnaireOption = {
+  key: string;
+  label: string;
+  description?: string;
+  recommended?: boolean;
+};
+
+export type PendingQuestionnaireAnswer =
+  | {
+      kind: "option";
+      optionKey: string;
+      optionLabel: string;
+    }
+  | {
+      kind: "text";
+      text: string;
+    };
+
+export type PendingQuestionnaireQuestion = {
+  index: number;
+  id: string;
+  header?: string;
+  prompt: string;
+  options: PendingQuestionnaireOption[];
+  guidance: string[];
+  allowFreeform?: boolean;
+};
+
+export type PendingQuestionnaireState = {
+  questions: PendingQuestionnaireQuestion[];
+  currentIndex: number;
+  answers: Array<PendingQuestionnaireAnswer | null>;
+  awaitingFreeform?: boolean;
+  responseMode?: "structured" | "compact";
+};
+
+export type PendingInputState = {
+  requestId: string;
+  options: string[];
+  actions?: PendingInputAction[];
+  expiresAt: number;
+  promptText?: string;
+  method?: string;
+  questionnaire?: PendingQuestionnaireState;
+};
+
+export type ThreadSummary = {
+  threadId: string;
+  title?: string;
+  summary?: string;
+  projectKey?: string;
+  createdAt?: number;
+  updatedAt?: number;
+  gitBranch?: string;
+};
+
+export type ModelSummary = {
+  id: string;
+  label?: string;
+  description?: string;
+  current?: boolean;
+  supportsReasoning?: boolean;
+  supportsFast?: boolean;
+};
+
+export type SkillSummary = {
+  cwd?: string;
+  name: string;
+  description?: string;
+  enabled?: boolean;
+};
+
+export type ExperimentalFeatureSummary = {
+  name: string;
+  stage?: string;
+  displayName?: string;
+  description?: string;
+  enabled?: boolean;
+  defaultEnabled?: boolean;
+};
+
+export type McpServerSummary = {
+  name: string;
+  authStatus?: string;
+  toolCount: number;
+  resourceCount: number;
+  resourceTemplateCount: number;
+};
+
+export type RateLimitSummary = {
+  name: string;
+  limitId?: string;
+  remaining?: number;
+  limit?: number;
+  used?: number;
+  usedPercent?: number;
+  resetAt?: number;
+  windowSeconds?: number;
+  windowMinutes?: number;
+};
+
+export type ThreadState = {
+  threadId: string;
+  threadName?: string;
+  model?: string;
+  modelProvider?: string;
+  serviceTier?: string;
+  cwd?: string;
+  approvalPolicy?: string;
+  sandbox?: string;
+  reasoningEffort?: string;
+};
+
+export type ThreadReplay = {
+  lastUserMessage?: string;
+  lastAssistantMessage?: string;
+};
+
+export type AccountSummary = {
+  type?: "apiKey" | "chatgpt";
+  email?: string;
+  planType?: string;
+  requiresOpenaiAuth?: boolean;
+};
+
+export type ContextUsageSnapshot = {
+  totalTokens?: number;
+  inputTokens?: number;
+  cachedInputTokens?: number;
+  outputTokens?: number;
+  reasoningOutputTokens?: number;
+  contextWindow?: number;
+  remainingTokens?: number;
+  remainingPercent?: number;
+};
+
+export type ConversationPreferences = {
+  preferredModel?: string;
+  preferredReasoningEffort?: string;
+  preferredServiceTier: string | null;
+  updatedAt: number;
+};
+
+export type CompactProgress =
+  | {
+      phase: "started" | "completed";
+      itemId?: string;
+      usage?: ContextUsageSnapshot;
+    }
+  | {
+      phase: "usage";
+      usage: ContextUsageSnapshot;
+    };
+
+export type CompactResult = {
+  itemId?: string;
+  usage?: ContextUsageSnapshot;
+};
+
+export type ReviewTarget =
+  | { type: "uncommittedChanges" }
+  | { type: "custom"; instructions: string };
+
+export type CollaborationMode = {
+  mode: string;
+  settings?: {
+    model?: string;
+    reasoningEffort?: string;
+    developerInstructions?: string | null;
+  };
+};
+
+export type ReviewResult = {
+  reviewText: string;
+  reviewThreadId?: string;
+  turnId?: string;
+  aborted?: boolean;
+};
+
+export type TurnTerminalError = {
+  message?: string;
+  codexErrorInfo?: string;
+  httpStatusCode?: number;
+};
+
+export type CodexTurnInputItem =
+  | {
+      type: "text";
+      text: string;
+    }
+  | {
+      type: "image";
+      url: string;
+    }
+  | {
+      type: "localImage";
+      path: string;
+    };
+
+export type TurnResult = {
+  threadId: string;
+  text?: string;
+  planArtifact?: CodexPlanArtifact;
+  aborted?: boolean;
+  stoppedReason?: "interrupt" | "cancelled" | "approval";
+  terminalStatus?: "completed" | "interrupted" | "failed";
+  terminalError?: TurnTerminalError;
+  usage?: ContextUsageSnapshot;
+};
+
+export type StoredBinding = {
+  conversation: ConversationRef;
+  sessionKey: string;
+  threadId: string;
+  workspaceDir: string;
+  permissionsMode?: PermissionsMode;
+  pendingPermissionsMode?: PermissionsMode;
+  threadTitle?: string;
+  pinnedBindingMessage?: InteractiveMessageRef;
+  contextUsage?: ContextUsageSnapshot;
+  preferences?: ConversationPreferences;
+  updatedAt: number;
+};
+
+export type InteractiveMessageRef =
+  | {
+      provider: "telegram";
+      messageId: string;
+      chatId: string;
+    }
+  | {
+      provider: "discord";
+      messageId: string;
+      channelId: string;
+    };
+
+export type StoredPendingBind = {
+  conversation: ConversationRef;
+  threadId: string;
+  workspaceDir: string;
+  permissionsMode?: PermissionsMode;
+  threadTitle?: string;
+  syncTopic?: boolean;
+  notifyBound?: boolean;
+  preferences?: ConversationPreferences;
+  updatedAt: number;
+};
+
+export type StoredPendingRequest = {
+  requestId: string;
+  conversation: ConversationRef;
+  threadId: string;
+  workspaceDir: string;
+  state: PendingInputState;
+  createdAt?: number;
+  updatedAt: number;
+};
+
+export type CallbackAction =
+  | {
+      token: string;
+      kind: "start-new-thread";
+      conversation: ConversationRef;
+      workspaceDir: string;
+      syncTopic?: boolean;
+      requestedModel?: string;
+      requestedFast?: boolean;
+      requestedYolo?: boolean;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "resume-thread";
+      conversation: ConversationRef;
+      threadId: string;
+      threadTitle?: string;
+      workspaceDir: string;
+      syncTopic?: boolean;
+      requestedModel?: string;
+      requestedFast?: boolean;
+      requestedYolo?: boolean;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "pending-input";
+      conversation: ConversationRef;
+      requestId: string;
+      actionIndex: number;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "pending-questionnaire";
+      conversation: ConversationRef;
+      requestId: string;
+      questionIndex: number;
+      action: "select" | "prev" | "next" | "freeform";
+      optionIndex?: number;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "picker-view";
+      conversation: ConversationRef;
+      view:
+        | {
+            mode: "threads";
+            includeAll: boolean;
+            page: number;
+            syncTopic?: boolean;
+            query?: string;
+            workspaceDir?: string;
+            projectName?: string;
+            requestedModel?: string;
+            requestedFast?: boolean;
+            requestedYolo?: boolean;
+          }
+        | {
+            mode: "projects";
+            action?: "resume-thread" | "start-new-thread";
+            includeAll: boolean;
+            page: number;
+            syncTopic?: boolean;
+            query?: string;
+            workspaceDir?: string;
+            projectName?: string;
+            requestedModel?: string;
+            requestedFast?: boolean;
+            requestedYolo?: boolean;
+          }
+        | {
+            mode: "workspaces";
+            action: "start-new-thread";
+            includeAll: boolean;
+            page: number;
+            syncTopic?: boolean;
+            workspaceDir?: string;
+            projectName: string;
+            requestedModel?: string;
+            requestedFast?: boolean;
+            requestedYolo?: boolean;
+          }
+        | {
+            mode: "skills";
+            page: number;
+            filter?: string;
+            clickMode: "run" | "help";
+          };
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "run-prompt";
+      conversation: ConversationRef;
+      prompt: string;
+      workspaceDir?: string;
+      collaborationMode?: CollaborationMode;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "toggle-fast";
+      conversation: ConversationRef;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "show-reasoning-picker";
+      conversation: ConversationRef;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "set-reasoning";
+      conversation: ConversationRef;
+      reasoningEffort: string;
+      returnToStatus?: boolean;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "toggle-permissions";
+      conversation: ConversationRef;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "compact-thread";
+      conversation: ConversationRef;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "stop-run";
+      conversation: ConversationRef;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "refresh-status";
+      conversation: ConversationRef;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "detach-thread";
+      conversation: ConversationRef;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "show-skills";
+      conversation: ConversationRef;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "show-mcp";
+      conversation: ConversationRef;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "run-skill";
+      conversation: ConversationRef;
+      skillName: string;
+      workspaceDir?: string;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "show-skill-help";
+      conversation: ConversationRef;
+      skillName: string;
+      description?: string;
+      cwd?: string;
+      enabled?: boolean;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "show-model-picker";
+      conversation: ConversationRef;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "set-model";
+      conversation: ConversationRef;
+      model: string;
+      returnToStatus?: boolean;
+      statusMessage?: InteractiveMessageRef;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "reply-text";
+      conversation: ConversationRef;
+      text: string;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "rename-thread";
+      conversation: ConversationRef;
+      style: "thread-project" | "thread";
+      syncTopic: boolean;
+      createdAt: number;
+      expiresAt: number;
+    }
+  | {
+      token: string;
+      kind: "cancel-picker";
+      conversation: ConversationRef;
+      createdAt: number;
+      expiresAt: number;
+    };
+
+export type StoreSnapshot = {
+  version: number;
+  bindings: StoredBinding[];
+  pendingBinds: StoredPendingBind[];
+  pendingRequests: StoredPendingRequest[];
+  callbacks: CallbackAction[];
+};
+
+export type ConversationTarget = ConversationRef & {
+  threadId?: number;
+};
+
+export type CommandButtons = PluginInteractiveButtons;

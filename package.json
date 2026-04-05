@@ -1,0 +1,35 @@
+{
+  "name": "@mallocfeng/openclaw-codex-app-server-lite",
+  "version": "0.0.0",
+  "description": "Minimal OpenClaw plugin for listing Codex App Server projects/threads and binding Telegram conversations.",
+  "author": "OpenAI Codex",
+  "license": "MIT",
+  "packageManager": "pnpm@10.29.3",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.4.2",
+      "minGatewayVersion": "2026.4.2"
+    },
+    "build": {
+      "openclawVersion": "2026.4.2",
+      "pluginSdkVersion": "2026.4.2"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.4.2"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "id": "openclaw-codex-app-server-lite",
+  "name": "OpenClaw Codex App Server Lite",
+  "description": "Minimal Telegram-focused Codex App Server binding plugin.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean"
+      },
+      "transport": {
+        "type": "string",
+        "enum": [
+          "stdio",
+          "websocket"
+        ]
+      },
+      "command": {
+        "type": "string"
+      },
+      "args": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "url": {
+        "type": "string"
+      },
+      "authToken": {
+        "type": "string"
+      },
+      "headers": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "requestTimeoutMs": {
+        "type": "number",
+        "minimum": 100
+      },
+      "defaultWorkspaceDir": {
+        "type": "string"
+      },
+      "defaultModel": {
+        "type": "string"
+      }
+    }
+  },
+  "uiHints": {
+    "enabled": {
+      "label": "Enabled"
+    },
+    "transport": {
+      "label": "Transport"
+    },
+    "command": {
+      "label": "Codex Command",
+      "help": "Used for stdio mode. Defaults to codex."
+    },
+    "args": {
+      "label": "Codex Args",
+      "advanced": true
+    },
+    "url": {
+      "label": "WebSocket URL"
+    },
+    "authToken": {
+      "label": "WebSocket Bearer Token",
+      "sensitive": true
+    },
+    "headers": {
+      "label": "Extra Headers",
+      "advanced": true
+    },
+    "requestTimeoutMs": {
+      "label": "Request Timeout (ms)",
+      "advanced": true
+    },
+    "defaultWorkspaceDir": {
+      "label": "Default Workspace Dir"
+    },
+    "defaultModel": {
+      "label": "Default Model",
+      "advanced": true
+    }
+  }
+}

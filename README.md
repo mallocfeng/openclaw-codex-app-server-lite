@@ -7,6 +7,11 @@ Minimal Telegram-focused OpenClaw plugin for:
 - binding a Telegram conversation to an existing thread
 - creating a new thread inside a selected project and binding to it
 
+## Compatibility
+
+- Supports OpenClaw `2026.4.2`
+- Supports Telegram only
+
 ## Commands
 
 - `/codex_start`
@@ -18,6 +23,8 @@ Minimal Telegram-focused OpenClaw plugin for:
 openclaw plugins install --dangerously-force-unsafe-install @mallocfeng/openclaw-codex-app-server-lite
 openclaw gateway restart
 ```
+
+`--dangerously-force-unsafe-install` is required because newer OpenClaw builds apply stricter plugin installation safety checks, and local/community plugins may be blocked unless you explicitly allow the install.
 
 ## Uninstall
 

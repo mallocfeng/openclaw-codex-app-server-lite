@@ -1,14 +1,16 @@
 # OpenClaw Codex App Server Lite
 
-Minimal OpenClaw plugin for Telegram-first Codex thread binding and message relay.
+Minimal OpenClaw plugin for Telegram and Feishu Codex thread binding and message relay.
 
-This plugin lets a Telegram conversation bind to a local Codex thread, then continue sending normal messages into that thread through `codex app-server`.
+This plugin lets a Telegram or Feishu conversation bind to a local Codex thread, then continue sending normal messages into that thread through `codex app-server`.
+
+The latest version supports both Telegram and Feishu. Feishu support is the main focus of this update.
 
 ## Compatibility
 
 - Adapted for the latest OpenClaw `2026.4.5`
 - Version `0.0.1` was verified against OpenClaw `2026.4.5`
-- Telegram only
+- Supports Telegram and Feishu
 
 ## Install
 
@@ -26,8 +28,8 @@ openclaw plugins install --link "/absolute/path/to/openclaw-codex-app-server-lit
 
 ## Commands
 
-- `/codex_start`: list threads, create a thread, or bind the current Telegram conversation
-- `/codex_stop`: detach the current Telegram conversation from the bound Codex thread
+- `/codex_start`: list threads, create a thread, or bind the current Telegram or Feishu conversation
+- `/codex_stop`: detach the current Telegram or Feishu conversation from the bound Codex thread
 
 ## Config
 
@@ -41,11 +43,16 @@ openclaw plugins install --link "/absolute/path/to/openclaw-codex-app-server-lit
 
 ## Latest Update
 
-Version `0.0.1` includes the OpenClaw `2026.4.5` compatibility refresh and the auth-environment fix for post-bind message failures.
+Version `0.0.1` includes the OpenClaw `2026.4.5` compatibility refresh, the auth-environment fix for post-bind message failures, and the new Feishu conversation flow.
+
+The main focus of this release is Feishu support.
 
 - Stop forwarding host provider auth env vars such as `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OLLAMA_API_KEY` into `codex app-server` by default.
 - Preserve a manual escape hatch with `inheritHostAuthEnv=true` for setups that intentionally use env-based auth.
 - Improve turn failure messaging so Codex auth conflicts are reported clearly instead of surfacing the raw upstream 401 error.
+- Add Feishu support for `/codex_start` and `/codex_stop`.
+- Add Feishu text-menu interaction so project and thread selection can continue by replying with numbers.
+- Fix Feishu private-chat and group-chat binding so selection menus stay interactive until the conversation is bound.
 
 ## Troubleshooting
 

@@ -40,14 +40,24 @@ declare module "openclaw/plugin-sdk" {
     channel: string;
     channelId?: string;
     isAuthorizedSender: boolean;
+    gatewayClientScopes?: string[];
+    sessionKey?: string;
+    sessionId?: string;
     args?: string;
     commandBody: string;
     config: unknown;
     from?: string;
     to?: string;
     accountId?: string;
-    messageThreadId?: number;
+    messageThreadId?: string | number;
+    threadParentId?: string;
     media?: PluginInboundMedia[];
+    requestConversationBinding?: (params?: {
+      summary?: string;
+      detachHint?: string;
+    }) => Promise<unknown>;
+    detachConversationBinding?: () => Promise<{ removed: boolean }>;
+    getCurrentConversationBinding?: () => Promise<PluginConversationBinding | null>;
   };
 
   export type PluginInteractiveButtons = Array<
@@ -306,18 +316,138 @@ declare module "openclaw/plugin-sdk" {
       handler: (ctx: PluginCommandContext) => Promise<ReplyPayload> | ReplyPayload;
     }) => void;
     on: (
-      hookName: "inbound_claim",
-      handler: (event: {
-        content: string;
-        channel: string;
-        accountId?: string;
-        conversationId?: string;
-        parentConversationId?: string;
-        threadId?: string | number;
-        media?: PluginInboundMedia[];
-      }) => Promise<{ handled: boolean }> | { handled: boolean },
+      hookName: "inbound_claim" | "before_dispatch",
+      handler: (
+        event: any,
+        ctx: any,
+      ) =>
+        | Promise<{ handled?: boolean; text?: string } | void>
+        | { handled?: boolean; text?: string }
+        | void,
     ) => void;
   };
+}
+
+declare module "openclaw/plugin-sdk/conversation-runtime" {
+  export function isSessionBindingError(error: unknown): boolean;
+
+  export function requestPluginConversationBinding(params: {
+    pluginId: string;
+    pluginName?: string;
+    pluginRoot: string;
+    conversation: {
+      channel: string;
+      accountId: string;
+      conversationId: string;
+      parentConversationId?: string;
+      threadId?: string | number;
+    };
+    requestedBySenderId?: string;
+    binding?: {
+      summary?: string;
+      detachHint?: string;
+    };
+  }): Promise<
+    | {
+        status: "bound";
+        binding: {
+          bindingId: string;
+          pluginId: string;
+          pluginName?: string;
+          pluginRoot: string;
+          channel: string;
+          accountId: string;
+          conversationId: string;
+          parentConversationId?: string;
+          threadId?: string | number;
+          boundAt: number;
+          summary?: string;
+          detachHint?: string;
+        };
+      }
+    | {
+        status: "pending";
+        approvalId: string;
+        reply: ReplyPayload;
+      }
+    | {
+        status: "error";
+        message: string;
+      }
+  >;
+
+  export function detachPluginConversationBinding(params: {
+    pluginRoot: string;
+    conversation: {
+      channel: string;
+      accountId: string;
+      conversationId: string;
+      parentConversationId?: string;
+      threadId?: string | number;
+    };
+  }): Promise<{ removed: boolean }>;
+
+  export function resolvePluginConversationBindingApproval(params: {
+    approvalId: string;
+    decision: "allow-once" | "allow-always" | "deny";
+    senderId?: string;
+  }): Promise<
+    | {
+        status: "approved";
+        binding: {
+          bindingId: string;
+          pluginId: string;
+          pluginName?: string;
+          pluginRoot: string;
+          channel: string;
+          accountId: string;
+          conversationId: string;
+          parentConversationId?: string;
+          threadId?: string | number;
+          boundAt: number;
+          summary?: string;
+          detachHint?: string;
+        };
+        request: {
+          requestedBySenderId?: string;
+        };
+        decision: "allow-once" | "allow-always";
+      }
+    | {
+        status: "denied";
+        request: {
+          requestedBySenderId?: string;
+        };
+      }
+    | {
+        status: "expired";
+      }
+  >;
+
+  export function parsePluginBindingApprovalCustomId(value: string): {
+    approvalId: string;
+    decision: "allow-once" | "allow-always" | "deny";
+  } | null;
+}
+
+declare module "openclaw/plugin-sdk/feishu-conversation" {
+  export function buildFeishuConversationId(params: {
+    chatId: string;
+    scope: "group" | "group_sender" | "group_topic" | "group_topic_sender";
+    senderOpenId?: string;
+    topicId?: string;
+  }): string;
+
+  export function parseFeishuConversationId(params: {
+    conversationId: string;
+    parentConversationId?: string;
+  }): {
+    canonicalConversationId: string;
+    chatId: string;
+    topicId?: string;
+    senderOpenId?: string;
+    scope: "group" | "group_sender" | "group_topic" | "group_topic_sender";
+  } | null;
 }
 
 declare module "openclaw/plugin-sdk/discord" {

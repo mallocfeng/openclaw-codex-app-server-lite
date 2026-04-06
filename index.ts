@@ -6,7 +6,7 @@ import { INTERACTIVE_NAMESPACE } from "./src/types.js";
 const plugin = {
   id: "openclaw-codex-app-server-lite",
   name: "OpenClaw Codex App Server Lite",
-  description: "Minimal Telegram-focused Codex App Server binding plugin.",
+  description: "Minimal Telegram and Feishu Codex App Server binding plugin.",
   register(api: OpenClawPluginApi) {
     const controller = new LiteCodexController(api);
 
@@ -25,6 +25,10 @@ const plugin = {
 
     api.on("inbound_claim", async (event) => {
       return await controller.handleInboundClaim(event);
+    });
+
+    api.on("before_dispatch", async (event, ctx) => {
+      return await controller.handleBeforeDispatch(event, ctx);
     });
 
     api.registerInteractiveHandler({

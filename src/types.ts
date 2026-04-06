@@ -2,7 +2,7 @@ import type { ConversationRef, PluginInteractiveButtons } from "openclaw/plugin-
 
 export const PLUGIN_ID = "openclaw-codex-app-server-lite";
 export const INTERACTIVE_NAMESPACE = "codexapplite";
-export const STORE_VERSION = 2;
+export const STORE_VERSION = 3;
 export const CALLBACK_TOKEN_BYTES = 9;
 export const CALLBACK_TTL_MS = 30 * 60_000;
 export const PENDING_INPUT_TTL_MS = 7 * 24 * 60 * 60_000;
@@ -319,6 +319,27 @@ export type StoredPendingRequest = {
   updatedAt: number;
 };
 
+export type StoredTextMenuOption =
+  | {
+      label: string;
+      kind: "callback";
+      token: string;
+    }
+  | {
+      label: string;
+      kind: "binding-approval";
+      approvalId: string;
+      decision: "allow-once" | "allow-always" | "deny";
+    };
+
+export type StoredTextMenu = {
+  conversation: ConversationRef;
+  promptText: string;
+  options: StoredTextMenuOption[];
+  expiresAt: number;
+  updatedAt: number;
+};
+
 export type CallbackAction =
   | {
       token: string;
@@ -567,10 +588,11 @@ export type StoreSnapshot = {
   pendingBinds: StoredPendingBind[];
   pendingRequests: StoredPendingRequest[];
   callbacks: CallbackAction[];
+  textMenus: StoredTextMenu[];
 };
 
 export type ConversationTarget = ConversationRef & {
-  threadId?: number;
+  threadId?: string | number;
 };
 
 export type CommandButtons = PluginInteractiveButtons;

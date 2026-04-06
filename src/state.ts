@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import { parseFeishuConversationId } from "openclaw/plugin-sdk/feishu-conversation";
 import { CALLBACK_TTL_MS, CALLBACK_TOKEN_BYTES, PLUGIN_ID, STORE_VERSION } from "./types.js";
 import type {
   CallbackAction,
@@ -12,6 +13,8 @@ import type {
   StoredBinding,
   StoredPendingBind,
   StoredPendingRequest,
+  StoredTextMenu,
+  StoredTextMenuOption,
 } from "./types.js";
 
 type PutCallbackInput =
@@ -192,12 +195,100 @@ type PutCallbackInput =
 
 function toConversationKey(target: ConversationTarget): string {
   const channel = target.channel.trim().toLowerCase();
-  return [
-    channel,
-    target.accountId.trim(),
-    target.conversationId.trim(),
-    channel === "telegram" ? (target.parentConversationId?.trim() ?? "") : "",
-  ].join("::");
+  const accountId = target.accountId.trim();
+  const conversationId = normalizeConversationId(target);
+  return [channel, accountId, conversationId].join("::");
+}
+
+function normalizeFeishuDirectConversationId(raw: string | undefined): string | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const withoutProvider = trimmed.replace(/^(feishu|lark):/i, "").trim();
+  const directMatch = /^(?:user|dm|open_id):(.+)$/i.exec(withoutProvider);
+  const directId = directMatch?.[1]?.trim() ?? withoutProvider;
+  if (/^(ou_|on_)/i.test(directId)) {
+    return directId;
+  }
+  return undefined;
+}
+
+function normalizeFeishuTargetConversationId(raw: string | undefined): string | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const withoutProvider = trimmed.replace(/^(feishu|lark):/i, "").trim();
+  const targetMatch = /^(?:chat|group|channel|user|dm|open_id):(.+)$/i.exec(withoutProvider);
+  const targetId = targetMatch?.[1]?.trim() ?? withoutProvider;
+  if (/^(oc_|ou_|on_)/i.test(targetId)) {
+    return targetId;
+  }
+  return undefined;
+}
+
+function normalizeConversationId(target: ConversationTarget): string {
+  const channel = target.channel.trim().toLowerCase();
+  const conversationId = target.conversationId.trim();
+  if (channel === "telegram") {
+    if (conversationId.includes(":topic:")) {
+      return conversationId;
+    }
+    const threadId =
+      typeof target.threadId === "number"
+        ? String(target.threadId)
+        : typeof target.threadId === "string"
+          ? target.threadId.trim()
+          : "";
+    if (threadId) {
+      return `${conversationId}:topic:${threadId}`;
+    }
+  }
+  if (channel === "feishu") {
+    const directId = normalizeFeishuDirectConversationId(conversationId);
+    if (directId) {
+      return directId;
+    }
+    const normalizedConversationId = normalizeFeishuTargetConversationId(conversationId);
+    if (normalizedConversationId) {
+      if (typeof target.threadId === "string" && target.threadId.trim()) {
+        return `${normalizedConversationId}:topic:${target.threadId.trim()}`;
+      }
+      if (typeof target.threadId === "number" && Number.isFinite(target.threadId)) {
+        return `${normalizedConversationId}:topic:${String(target.threadId)}`;
+      }
+      return normalizedConversationId;
+    }
+    const parsed = parseFeishuConversationId({
+      conversationId,
+      parentConversationId: normalizeFeishuTargetConversationId(target.parentConversationId),
+    });
+    if (parsed?.topicId) {
+      return `${parsed.chatId}:topic:${parsed.topicId}`;
+    }
+    return parsed?.chatId ?? conversationId;
+  }
+  return conversationId;
+}
+
+function sameConversation(left: ConversationTarget, right: ConversationTarget): boolean {
+  return (
+    left.channel.trim().toLowerCase() === right.channel.trim().toLowerCase() &&
+    normalizeConversationId(left) === normalizeConversationId(right)
+  );
+}
+
+function findConversationMatch<T extends { conversation: ConversationTarget }>(
+  entries: readonly T[],
+  target: ConversationTarget,
+): T | null {
+  const exactKey = toConversationKey(target);
+  const exact = entries.find((entry) => toConversationKey(entry.conversation) === exactKey);
+  if (exact) {
+    return exact;
+  }
+  return entries.find((entry) => sameConversation(entry.conversation, target)) ?? null;
 }
 
 function cloneSnapshot(value?: Partial<StoreSnapshot>): StoreSnapshot {
@@ -207,6 +298,7 @@ function cloneSnapshot(value?: Partial<StoreSnapshot>): StoreSnapshot {
     pendingBinds: value?.pendingBinds ?? [],
     pendingRequests: value?.pendingRequests ?? [],
     callbacks: value?.callbacks ?? [],
+    textMenus: value?.textMenus ?? [],
   };
 }
 
@@ -297,6 +389,10 @@ function normalizeSnapshot(value?: Partial<StoreSnapshot>): StoreSnapshot {
       preferences: normalizeConversationPreferences(legacyPreferences),
     };
   });
+  snapshot.textMenus = (snapshot.textMenus ?? []).map((entry) => ({
+    ...entry,
+    options: (entry.options ?? []).map((option) => ({ ...option })),
+  }));
   return snapshot;
 }
 
@@ -343,6 +439,7 @@ export class PluginStateStore {
       (entry) => entry.state.expiresAt > now,
     );
     this.snapshot.callbacks = this.snapshot.callbacks.filter((entry) => entry.expiresAt > now);
+    this.snapshot.textMenus = this.snapshot.textMenus.filter((entry) => entry.expiresAt > now);
   }
 
   listBindings(): StoredBinding[] {
@@ -350,68 +447,58 @@ export class PluginStateStore {
   }
 
   getBinding(target: ConversationTarget): StoredBinding | null {
-    const key = toConversationKey(target);
-    return this.snapshot.bindings.find((entry) => toConversationKey(entry.conversation) === key) ?? null;
+    return findConversationMatch(this.snapshot.bindings, target);
   }
 
   async upsertBinding(binding: StoredBinding): Promise<void> {
-    const key = toConversationKey(binding.conversation);
     this.snapshot.bindings = this.snapshot.bindings.filter(
-      (entry) => toConversationKey(entry.conversation) !== key,
+      (entry) => !sameConversation(entry.conversation, binding.conversation),
     );
     this.snapshot.pendingBinds = this.snapshot.pendingBinds.filter(
-      (entry) => toConversationKey(entry.conversation) !== key,
+      (entry) => !sameConversation(entry.conversation, binding.conversation),
     );
     this.snapshot.bindings.push(binding);
     await this.save();
   }
 
   async removeBinding(target: ConversationTarget): Promise<void> {
-    const key = toConversationKey(target);
     this.snapshot.bindings = this.snapshot.bindings.filter(
-      (entry) => toConversationKey(entry.conversation) !== key,
+      (entry) => !sameConversation(entry.conversation, target),
     );
     this.snapshot.pendingBinds = this.snapshot.pendingBinds.filter(
-      (entry) => toConversationKey(entry.conversation) !== key,
+      (entry) => !sameConversation(entry.conversation, target),
     );
     this.snapshot.pendingRequests = this.snapshot.pendingRequests.filter(
-      (entry) => toConversationKey(entry.conversation) !== key,
+      (entry) => !sameConversation(entry.conversation, target),
     );
     this.snapshot.callbacks = this.snapshot.callbacks.filter(
-      (entry) => toConversationKey(entry.conversation) !== key,
+      (entry) => !sameConversation(entry.conversation, target),
+    );
+    this.snapshot.textMenus = this.snapshot.textMenus.filter(
+      (entry) => !sameConversation(entry.conversation, target),
     );
     await this.save();
   }
 
   getPendingRequestByConversation(target: ConversationTarget): StoredPendingRequest | null {
-    const key = toConversationKey(target);
-    return (
-      this.snapshot.pendingRequests.find((entry) => toConversationKey(entry.conversation) === key) ??
-      null
-    );
+    return findConversationMatch(this.snapshot.pendingRequests, target);
   }
 
   getPendingBind(target: ConversationTarget): StoredPendingBind | null {
-    const key = toConversationKey(target);
-    return (
-      this.snapshot.pendingBinds.find((entry) => toConversationKey(entry.conversation) === key) ??
-      null
-    );
+    return findConversationMatch(this.snapshot.pendingBinds, target);
   }
 
   async upsertPendingBind(entry: StoredPendingBind): Promise<void> {
-    const key = toConversationKey(entry.conversation);
     this.snapshot.pendingBinds = this.snapshot.pendingBinds.filter(
-      (current) => toConversationKey(current.conversation) !== key,
+      (current) => !sameConversation(current.conversation, entry.conversation),
     );
     this.snapshot.pendingBinds.push(entry);
     await this.save();
   }
 
   async removePendingBind(target: ConversationTarget): Promise<void> {
-    const key = toConversationKey(target);
     this.snapshot.pendingBinds = this.snapshot.pendingBinds.filter(
-      (entry) => toConversationKey(entry.conversation) !== key,
+      (entry) => !sameConversation(entry.conversation, target),
     );
     await this.save();
   }
@@ -438,6 +525,40 @@ export class PluginStateStore {
       }
       return entry.requestId !== requestId;
     });
+    this.snapshot.textMenus = this.snapshot.textMenus.filter((entry) =>
+      entry.options.some((option) => {
+        if (option.kind !== "callback") {
+          return true;
+        }
+        const callback = this.snapshot.callbacks.find((current) => current.token === option.token);
+        if (!callback) {
+          return false;
+        }
+        if (callback.kind !== "pending-input" && callback.kind !== "pending-questionnaire") {
+          return true;
+        }
+        return callback.requestId !== requestId;
+      }),
+    );
+    await this.save();
+  }
+
+  getTextMenu(target: ConversationTarget): StoredTextMenu | null {
+    return findConversationMatch(this.snapshot.textMenus, target);
+  }
+
+  async upsertTextMenu(entry: StoredTextMenu): Promise<void> {
+    this.snapshot.textMenus = this.snapshot.textMenus.filter(
+      (current) => !sameConversation(current.conversation, entry.conversation),
+    );
+    this.snapshot.textMenus.push(entry);
+    await this.save();
+  }
+
+  async removeTextMenu(target: ConversationTarget): Promise<void> {
+    this.snapshot.textMenus = this.snapshot.textMenus.filter(
+      (entry) => !sameConversation(entry.conversation, target),
+    );
     await this.save();
   }
 

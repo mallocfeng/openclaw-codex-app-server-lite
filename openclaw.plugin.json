@@ -1,7 +1,7 @@
 {
   "id": "openclaw-codex-app-server-lite",
   "name": "OpenClaw Codex App Server Lite",
-  "description": "Minimal Telegram-focused Codex App Server binding plugin.",
+  "description": "Minimal Telegram and Feishu Codex App Server binding plugin.",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

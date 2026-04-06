@@ -16,6 +16,7 @@ export type PluginSettings = {
   transport: CodexTransport;
   command: string;
   args: string[];
+  inheritHostAuthEnv: boolean;
   url?: string;
   headers?: Record<string, string>;
   requestTimeoutMs: number;

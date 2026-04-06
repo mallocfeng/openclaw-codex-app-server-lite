@@ -24,12 +24,14 @@ import {
   INTERACTIVE_NAMESPACE,
   PLUGIN_ID,
   type CallbackAction,
+  type AccountSummary,
   type CodexTurnInputItem,
   type ConversationTarget,
   type PendingInputState,
   type StoredBinding,
   type StoredPendingBind,
   type ThreadSummary,
+  type TurnTerminalError,
   type TurnResult,
 } from "./types.js";
 
@@ -883,10 +885,10 @@ export class LiteCodexController {
         );
       })
       .catch(async (error) => {
-        await this.sendText(
-          params.conversation,
-          `Codex run failed:\n${error instanceof Error ? error.message : String(error)}`,
-        );
+        await this.sendText(params.conversation, await this.describeTurnError({
+          binding: params.binding,
+          error,
+        }));
       })
       .finally(async () => {
         this.activeRuns.delete(key);
@@ -919,12 +921,86 @@ export class LiteCodexController {
       return;
     }
     if (result.terminalError?.message?.trim()) {
-      await this.sendText(conversation, `Codex error:\n${result.terminalError.message.trim()}`);
+      await this.sendText(conversation, await this.describeTurnError({
+        binding,
+        error: result.terminalError.message.trim(),
+        terminalError: result.terminalError,
+      }));
       return;
     }
     if (result.aborted) {
       await this.sendText(conversation, "Codex run stopped.");
     }
+  }
+
+  private async describeTurnError(params: {
+    binding: StoredBinding;
+    error: unknown;
+    terminalError?: TurnTerminalError;
+  }): Promise<string> {
+    const message =
+      params.terminalError?.message?.trim() ||
+      (params.error instanceof Error ? params.error.message : String(params.error));
+    if (this.looksLikeExplicitCodexAuthFailure(params.terminalError, message)) {
+      const account = await this.client
+        .readAccount({
+          profile: "default",
+          sessionKey: params.binding.sessionKey,
+          refreshToken: true,
+        })
+        .catch(() => undefined);
+      this.api.logger.warn?.(
+        `codex auth failure inferred from lite turn error session=${params.binding.sessionKey}: ${message}`,
+      );
+      return this.formatCodexAuthFailureMessage(account, message);
+    }
+    return `Codex failed:\n${message}`;
+  }
+
+  private formatCodexAuthFailureMessage(
+    account: AccountSummary | undefined,
+    message: string,
+  ): string {
+    const normalized = message.trim().toLowerCase();
+    if (normalized.includes("incorrect api key provided")) {
+      return "Codex authentication failed on this machine. A host `OPENAI_API_KEY` is overriding Codex login. Clear that env var or set `inheritHostAuthEnv=true` only if you intentionally want env-based auth.";
+    }
+    if (account?.type === "apiKey" && account.requiresOpenaiAuth !== true) {
+      return "Codex authentication failed on this machine. Check the configured API key and try again.";
+    }
+    return "Codex authentication failed on this machine. Run `codex logout` and `codex login`, then try again.";
+  }
+
+  private looksLikeExplicitCodexAuthFailure(
+    terminalError: TurnTerminalError | undefined,
+    message: string,
+  ): boolean {
+    if (terminalError?.httpStatusCode === 401) {
+      return true;
+    }
+    const codexErrorInfo = terminalError?.codexErrorInfo?.trim().toLowerCase() ?? "";
+    if (codexErrorInfo.includes("unauthorized")) {
+      return true;
+    }
+    return this.looksLikeCodexAuthFailure(message);
+  }
+
+  private looksLikeCodexAuthFailure(message: string): boolean {
+    const normalized = message.trim().toLowerCase();
+    return [
+      "unauthorized",
+      "401",
+      "oauth",
+      "incorrect api key provided",
+      "invalid token",
+      "invalid oauth",
+      "invalid_grant",
+      "refresh token expired",
+      "requires openai auth",
+      "requiresopenaiauth",
+      "not signed in",
+      "login required",
+    ].some((pattern) => normalized.includes(pattern));
   }
 
   private async handlePendingInput(

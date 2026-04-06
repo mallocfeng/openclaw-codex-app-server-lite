@@ -25,6 +25,9 @@
           "type": "string"
         }
       },
+      "inheritHostAuthEnv": {
+        "type": "boolean"
+      },
       "url": {
         "type": "string"
       },
@@ -62,6 +65,11 @@
     },
     "args": {
       "label": "Codex Args",
+      "advanced": true
+    },
+    "inheritHostAuthEnv": {
+      "label": "Inherit Host Auth Env",
+      "help": "Pass provider auth env vars like OPENAI_API_KEY through to codex app-server. Disabled by default so host OpenClaw provider config does not override Codex login.",
       "advanced": true
     },
     "url": {

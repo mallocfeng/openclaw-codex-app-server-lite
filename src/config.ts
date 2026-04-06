@@ -71,6 +71,7 @@ export function resolvePluginSettings(rawConfig: unknown): PluginSettings {
     transport,
     command: readString(record, "command") ?? "codex",
     args: readStringArray(record, "args"),
+    inheritHostAuthEnv: record.inheritHostAuthEnv === true,
     url: readString(record, "url"),
     headers: Object.keys(headers).length > 0 ? headers : undefined,
     requestTimeoutMs: readNumber(

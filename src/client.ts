@@ -6,6 +6,7 @@ import WebSocket from "ws";
 import type { PluginLogger } from "openclaw/plugin-sdk";
 import { modelSupportsFast, modelSupportsReasoning } from "./model-capabilities.js";
 import { createPendingInputState, parseCodexUserInput } from "./pending-input.js";
+import { buildCodexSpawnEnv } from "./spawn-env.js";
 import {
   CALLBACK_TTL_MS,
   PENDING_INPUT_TTL_MS,
@@ -641,6 +642,7 @@ class StdioJsonRpcClient implements JsonRpcClient {
   constructor(
     private readonly command: string,
     private readonly args: string[],
+    private readonly inheritHostAuthEnv: boolean,
     private readonly requestTimeoutMs: number,
     private readonly logger?: PluginLogger,
     private readonly onClose?: JsonRpcCloseHandler,
@@ -660,7 +662,9 @@ class StdioJsonRpcClient implements JsonRpcClient {
     }
     const child = spawn(this.command, ["app-server", ...this.args], {
       stdio: ["pipe", "pipe", "pipe"],
-      env: process.env,
+      env: buildCodexSpawnEnv(process.env, {
+        inheritHostAuthEnv: this.inheritHostAuthEnv,
+      }),
     });
     if (!child.stdin || !child.stdout || !child.stderr) {
       throw new Error("codex app server stdio pipes unavailable");
@@ -836,6 +840,7 @@ function createJsonRpcClient(
   return new StdioJsonRpcClient(
     settings.command,
     settings.args,
+    settings.inheritHostAuthEnv,
     settings.requestTimeoutMs,
     logger,
     onClose,

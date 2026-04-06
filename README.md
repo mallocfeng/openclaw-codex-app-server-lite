@@ -47,6 +47,32 @@ Version `0.0.1` includes the OpenClaw `2026.4.5` compatibility refresh and the a
 - Preserve a manual escape hatch with `inheritHostAuthEnv=true` for setups that intentionally use env-based auth.
 - Improve turn failure messaging so Codex auth conflicts are reported clearly instead of surfacing the raw upstream 401 error.
 
+## Troubleshooting
+
+If Telegram returns:
+
+```text
+Codex authentication failed on this machine. A host OPENAI_API_KEY is overriding Codex login. Clear that env var or set inheritHostAuthEnv=true only if you intentionally want env-based auth.
+```
+
+check these items in order:
+
+1. Confirm Codex is logged in on the machine:
+
+   ```bash
+   codex login
+   ```
+
+2. Remove the conflicting host auth environment variables:
+
+   ```bash
+   launchctl unsetenv OPENAI_API_KEY
+   launchctl unsetenv OPENAI_BASE_URL
+   launchctl unsetenv OPENAI_API_BASE
+   ```
+
+3. Restart OpenClaw so the plugin process picks up the cleaned environment, then bind the conversation again.
+
 ## Release
 
 Publish a new npm version with:

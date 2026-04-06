@@ -4,6 +4,12 @@ Minimal OpenClaw plugin for Telegram-first Codex thread binding and message rela
 
 This plugin lets a Telegram conversation bind to a local Codex thread, then continue sending normal messages into that thread through `codex app-server`.
 
+## Compatibility
+
+- Adapted for the latest OpenClaw `2026.4.5`
+- Version `0.0.1` was verified against OpenClaw `2026.4.5`
+- Telegram only
+
 ## Install
 
 From npm:
@@ -35,7 +41,7 @@ openclaw plugins install --link "/absolute/path/to/openclaw-codex-app-server-lit
 
 ## Latest Update
 
-Version `0.0.1` includes the auth-environment fix for post-bind message failures.
+Version `0.0.1` includes the OpenClaw `2026.4.5` compatibility refresh and the auth-environment fix for post-bind message failures.
 
 - Stop forwarding host provider auth env vars such as `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OLLAMA_API_KEY` into `codex app-server` by default.
 - Preserve a manual escape hatch with `inheritHostAuthEnv=true` for setups that intentionally use env-based auth.

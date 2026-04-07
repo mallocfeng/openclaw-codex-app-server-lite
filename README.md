@@ -26,6 +26,21 @@ From a local checkout:
 openclaw plugins install --link "/absolute/path/to/openclaw-codex-app-server-lite"
 ```
 
+After installing, updating, or relinking the plugin, run:
+
+```bash
+openclaw gateway restart
+```
+
+so OpenClaw reloads the plugin code.
+
+## Uninstall
+
+```bash
+openclaw plugins uninstall openclaw-codex-app-server-lite
+openclaw gateway restart
+```
+
 ## Commands
 
 - `/codex_start`: list threads, create a thread, or bind the current Telegram or Feishu conversation

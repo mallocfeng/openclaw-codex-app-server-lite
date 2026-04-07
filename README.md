@@ -4,12 +4,12 @@ Minimal OpenClaw plugin for Telegram and Feishu Codex thread binding and message
 
 This plugin lets a Telegram or Feishu conversation bind to a local Codex thread, then continue sending normal messages into that thread through `codex app-server`.
 
-The latest version supports both Telegram and Feishu. Feishu support is the main focus of this update.
+Version `0.0.2` supports both Telegram and Feishu. Feishu support is the main focus of this update.
 
 ## Compatibility
 
 - Adapted for the latest OpenClaw `2026.4.5`
-- Version `0.0.1` was verified against OpenClaw `2026.4.5`
+- Version `0.0.2` was verified against OpenClaw `2026.4.5`
 - Supports Telegram and Feishu
 
 ## Install
@@ -58,9 +58,9 @@ openclaw gateway restart
 
 ## Latest Update
 
-Version `0.0.1` includes the OpenClaw `2026.4.5` compatibility refresh, the auth-environment fix for post-bind message failures, and the new Feishu conversation flow.
+Version `0.0.2` includes the OpenClaw `2026.4.5` compatibility refresh, the auth-environment fix for post-bind message failures, and full Feishu support.
 
-The main focus of this release is Feishu support.
+The main focus of version `0.0.2` is Feishu support.
 
 - Stop forwarding host provider auth env vars such as `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OLLAMA_API_KEY` into `codex app-server` by default.
 - Preserve a manual escape hatch with `inheritHostAuthEnv=true` for setups that intentionally use env-based auth.

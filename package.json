@@ -1,6 +1,6 @@
 {
   "name": "@mallocfeng/openclaw-codex-app-server-lite",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Minimal OpenClaw plugin for listing Codex App Server projects/threads and binding Telegram or Feishu conversations.",
   "author": "OpenAI Codex",
   "license": "MIT",

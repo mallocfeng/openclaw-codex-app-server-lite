@@ -34,6 +34,8 @@ openclaw gateway restart
 
 so OpenClaw reloads the plugin code.
 
+If the plugin still behaves incorrectly after you upgrade OpenClaw, remove the plugin and install it again using the same install command above, then restart the gateway.
+
 ## Uninstall
 
 ```bash

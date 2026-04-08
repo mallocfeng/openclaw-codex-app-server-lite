@@ -34,7 +34,7 @@ openclaw gateway restart
 
 so OpenClaw reloads the plugin code.
 
-If the plugin still behaves incorrectly after you upgrade OpenClaw, remove the plugin and install it again using the same install command above, then restart the gateway.
+If you upgrade OpenClaw, it is recommended to reinstall this plugin using the same install command above, then run `openclaw gateway restart`.
 
 ## Uninstall
 
@@ -95,7 +95,7 @@ check these items in order:
    launchctl unsetenv OPENAI_API_BASE
    ```
 
-3. Restart OpenClaw so the plugin process picks up the cleaned environment, then bind the conversation again.
+3. Restart OpenClaw so the plugin process picks up the cleaned environment. If you recently upgraded OpenClaw, reinstall this plugin first, then bind the conversation again.
 
 ## Release
 
